@@ -22,7 +22,9 @@
     "seed": "ts-node prisma/seed.ts",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma db push --skip-generate",
-    "postinstall": "npm run prisma:generate"
+    "postinstall": "npm run prisma:generate",
+    "debug:paths": "ls -la && ls -la dist/ && pwd",
+    "start:debug": "npm run debug:paths && node dist/main.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
