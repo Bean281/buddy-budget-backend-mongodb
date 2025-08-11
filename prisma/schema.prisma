@@ -1,0 +1,228 @@
+// Updated schema.prisma for MongoDB
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  email           String   @unique
+  password        String
+  firstName       String?
+  lastName        String?
+  profileImageUrl String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // User preferences (embedded document)
+  currency           String         @default("USD")
+  symbolPosition     SymbolPosition @default(BEFORE)
+  decimalPlaces      Int            @default(2)
+  thousandsSeparator String         @default(",")
+  decimalSeparator   String         @default(".")
+  hideCents          Boolean        @default(false)
+  roundToNearest     RoundingOption @default(NONE)
+  weekStartDay       WeekDay        @default(SUNDAY)
+
+  // Notification preferences (embedded document)
+  notifyLowBalance     Boolean @default(true)
+  notifyBillsDue       Boolean @default(true)
+  notifyGoalReached    Boolean @default(true)
+  notifyBudgetExceeded Boolean @default(true)
+
+  theme Theme @default(LIGHT)
+
+  // Relations (using ObjectId references)
+  budgets      Budget[]
+  transactions Transaction[]
+  categories   Category[]
+  bills        Bill[]
+  savingsGoals SavingsGoal[]
+  planItems    PlanItem[]
+
+  @@map("users")
+}
+
+model Transaction {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  amount      Float
+  description String?
+  date        DateTime
+  notes       String?
+  type        TransactionType
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String   @db.ObjectId
+  category   Category @relation(fields: [categoryId], references: [id])
+  billId     String?  @db.ObjectId
+  bill       Bill?    @relation(fields: [billId], references: [id])
+
+  @@map("transactions")
+}
+
+model Category {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  color       String
+  icon        String
+  type        CategoryType
+  isDefault   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  userId       String                 @db.ObjectId
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  bills        Bill[]
+  allocations  CategoryAllocation[]
+  planItems    PlanItem[]
+
+  @@map("categories")
+}
+
+model Bill {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  amount    Float
+  dueDate   DateTime
+  frequency BillFrequency
+  autopay   Boolean       @default(false)
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  userId       String        @db.ObjectId
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId   String        @db.ObjectId
+  category     Category      @relation(fields: [categoryId], references: [id])
+  transactions Transaction[]
+
+  @@map("bills")
+}
+
+model Budget {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  amount      Float
+  startDate   DateTime
+  endDate     DateTime
+  type        BudgetTimeframe
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  userId              String               @db.ObjectId
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryAllocations CategoryAllocation[]
+
+  @@map("budgets")
+}
+
+model CategoryAllocation {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  amount Float
+
+  budgetId   String   @db.ObjectId
+  budget     Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  categoryId String   @db.ObjectId
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("category_allocations")
+}
+
+model SavingsGoal {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  targetAmount  Float
+  currentAmount Float     @default(0)
+  targetDate    DateTime?
+  completed     Boolean   @default(false)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("savings_goals")
+}
+
+model PlanItem {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  description String
+  amount      Float
+  notes       String?
+  planType    String
+  itemType    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId     String    @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String?   @db.ObjectId
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@map("plan_items")
+}
+
+// Enums remain the same
+enum CategoryType {
+  EXPENSE
+  INCOME
+}
+
+enum TransactionType {
+  EXPENSE
+  INCOME
+}
+
+enum BudgetTimeframe {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum BillFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  BIANNUALLY
+  ANNUALLY
+}
+
+enum SymbolPosition {
+  BEFORE
+  AFTER
+}
+
+enum RoundingOption {
+  NONE
+  NEAREST_DOLLAR
+  NEAREST_FIFTY_CENTS
+  NEAREST_QUARTER
+}
+
+enum WeekDay {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+enum Theme {
+  LIGHT
+  DARK
+}
