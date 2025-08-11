@@ -17,12 +17,27 @@ if (distExists) {
   const distContents = fs.readdirSync(distPath);
   console.log('dist directory contents:', distContents);
   
-  const mainJsPath = path.join(distPath, 'main.js');
-  const mainJsExists = fs.existsSync(mainJsPath);
-  console.log('main.js exists:', mainJsExists);
-  console.log('main.js path:', mainJsPath);
+  // Try multiple possible locations for main.js
+  const possiblePaths = [
+    path.join(distPath, 'main.js'),           // dist/main.js
+    path.join(distPath, 'src', 'main.js'),    // dist/src/main.js
+    path.join(process.cwd(), 'dist', 'main.js'), // absolute path
+  ];
   
-  if (mainJsExists) {
+  let mainJsPath = null;
+  let mainJsExists = false;
+  
+  for (const possiblePath of possiblePaths) {
+    console.log('Checking path:', possiblePath);
+    if (fs.existsSync(possiblePath)) {
+      mainJsPath = possiblePath;
+      mainJsExists = true;
+      console.log('✅ Found main.js at:', possiblePath);
+      break;
+    }
+  }
+  
+  if (mainJsExists && mainJsPath) {
     console.log('✅ Starting application...');
     const child = spawn('node', [mainJsPath], {
       stdio: 'inherit',
@@ -39,7 +54,30 @@ if (distExists) {
       process.exit(code);
     });
   } else {
-    console.error('❌ main.js not found in dist directory');
+    console.error('❌ main.js not found in any expected location');
+    console.log('📁 Exploring dist directory structure:');
+    
+    function exploreDirectory(dirPath, prefix = '') {
+      try {
+        const items = fs.readdirSync(dirPath);
+        items.forEach(item => {
+          const itemPath = path.join(dirPath, item);
+          const stats = fs.statSync(itemPath);
+          if (stats.isDirectory()) {
+            console.log(`${prefix}📁 ${item}/`);
+            if (prefix.length < 6) { // Limit depth
+              exploreDirectory(itemPath, prefix + '  ');
+            }
+          } else {
+            console.log(`${prefix}📄 ${item}`);
+          }
+        });
+      } catch (error) {
+        console.error(`Error reading directory ${dirPath}:`, error.message);
+      }
+    }
+    
+    exploreDirectory(distPath);
     process.exit(1);
   }
 } else {
